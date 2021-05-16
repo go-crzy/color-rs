@@ -1,34 +1,20 @@
+#[tokio::main]
+async fn main() {
+	use filters::*;
+    let routes = color();
 
-// use warp::Filter;
-
-// pub fn color() -> impl Filter<Extract = (&'static str,)> + Copy {
-// 	warp::any().map(|| "{\"color\": \"red\"}")
-// }	
-
-// #[cfg(test)]
-// mod tests {
-// 	use super::*; 
-
-// 	#[test]
-//     fn test_add() {
-// 		let filter = color();
-
-// 		let value = warp::test::request()
-// 			.path("/")
-// 			.reply(&filter);
-
-// 		assert_eq!(value.status(), 200);
-// 	}
-// }
+    warp::serve(routes)
+        .run(([127, 0, 0, 1], 8080))
+        .await;
+}
 
 mod filters{
     use warp::Filter;
     use super::handlers;
 
-    pub fn list() ->  impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone{ 
-        warp::path!("holodeck")
-            .and(warp::get())
-            .and_then(handlers::handle_list)
+    pub fn color() ->  impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone{ 
+        warp::get()
+            .and_then(handlers::handle_color)
     }
 }
 
@@ -36,39 +22,33 @@ mod handlers{
     use warp::http::StatusCode;
     use std::convert::Infallible;
 
-    pub async fn handle_list() -> Result<impl warp::Reply, Infallible> {
+    pub async fn handle_color() -> Result<impl warp::Reply, Infallible> {
         // "Alright, alright, alright", Matthew said.
-        Ok(StatusCode::OK)
+        Ok(warp::reply::with_status("{\"color\": \"red\"}", StatusCode::OK))
     }
 }
-
-#[tokio::main]
-async fn main() {
-	use filters::*;
-    let routes = list();
-
-    warp::serve(routes)
-        .run(([127, 0, 0, 1], 8080))
-        .await;
-}
-
 
 #[cfg(test)]
 mod tests {
     use warp::http::StatusCode;
     use warp::test::request;
     use super::filters;
+    use std::str;
 
     #[tokio::test]
-    async fn try_list() {
-        let api = filters::list();
+    async fn try_color() {
+        let api = filters::color();
 
         let response = request()
             .method("GET")
-            .path("/holodeck")
+            .path("/")
             .reply(&api)
             .await;
 
-        assert_eq!(response.status(), StatusCode::ACCEPTED);
+			assert_eq!(response.status(), StatusCode::OK);
+
+			let result: Vec<u8> = response.into_body().into_iter().collect();
+			let result = str::from_utf8(&result).unwrap();
+			assert_eq!(result, "{\"color\": \"red\"}");
     }
 }
